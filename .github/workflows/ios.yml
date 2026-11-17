@@ -73,8 +73,21 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test-without-building -project Podcats.xcodeproj -scheme Podcats -destination "id=${{ steps.sim.outputs.id }}" \
-            -derivedDataPath dd 2>&1 | tee out/app-tests.log | grep -E "Test Case|error:|failed|passed|TEST|\*\*" || true
+            -derivedDataPath dd -only-testing:PodcatsTests 2>&1 | tee out/app-tests.log | grep -E "Test Case|error:|failed|passed|TEST|\*\*" || true
           grep -q "TEST EXECUTE SUCCEEDED\|TEST SUCCEEDED" out/app-tests.log
+
+      - name: The app driven by hand (file picker, typing, playing, sharing)
+        id: uitests
+        if: steps.simbuild.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          rm -rf ui.xcresult
+          xcodebuild test-without-building -project Podcats.xcodeproj -scheme Podcats -destination "id=${{ steps.sim.outputs.id }}" \
+            -derivedDataPath dd -only-testing:PodcatsUITests -resultBundlePath ui.xcresult 2>&1 | tee out/ui-tests.log | grep -E "Test Case|error:|failed|passed|TEST|\*\*" || true
+          mkdir -p out/ui
+          xcrun xcresulttool export attachments --path ui.xcresult --output-path out/ui || true
+          grep -q "TEST EXECUTE SUCCEEDED\|TEST SUCCEEDED" out/ui-tests.log
 
       - name: What the tests made
         if: steps.simbuild.outcome == 'success'
@@ -100,7 +113,9 @@ jobs:
             sleep "$secs"
             xcrun simctl io "$id" screenshot "out/shots/$name.png"
           }
-          shot 1-library 8
+          shot 1-library 8 -reset -seed
+          sleep 45
+          shot 1-library 6
           shot 2-player 8 -open player
           shot 3-select 6 -open select
           shot 4-settings 6 -open settings
@@ -134,17 +149,17 @@ jobs:
         run: |
           cat > out/status.json <<EOF
           {"sha": "${{ github.sha }}", "run": ${{ github.run_number }}, "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-           "core": "${{ steps.core.outcome }}", "project": "${{ steps.project.outcome }}", "simbuild": "${{ steps.simbuild.outcome }}", "tests": "${{ steps.tests.outcome }}", "ipa": "${{ steps.ipa.outcome }}"}
+           "core": "${{ steps.core.outcome }}", "project": "${{ steps.project.outcome }}", "simbuild": "${{ steps.simbuild.outcome }}", "tests": "${{ steps.tests.outcome }}", "uitests": "${{ steps.uitests.outcome }}", "ipa": "${{ steps.ipa.outcome }}"}
           EOF
-          for f in sim-build app-tests ipa-build; do [ -f out/$f.log ] && grep -n -E "error:|error |failed|Assert|XCTAssert|Fatal|crash" out/$f.log | head -200 > out/$f.errors.txt || true; done
+          for f in sim-build app-tests ui-tests ipa-build; do [ -f out/$f.log ] && grep -n -E "error:|error |failed|Assert|XCTAssert|Fatal|crash" out/$f.log | head -200 > out/$f.errors.txt || true; done
           (cd out && zip -qr results.zip . -x Podcats.ipa -x results.zip)
           gh release view ios-build >/dev/null 2>&1 || gh release create ios-build --prerelease --title "Podcats for iPhone (unsigned build)" \
             --notes "Built by the iOS app workflow. Podcats.ipa is unsigned: sign it for your own iPhone before installing. results.zip holds the logs, test outputs and screenshots of the same run."
           gh release upload ios-build out/results.zip out/status.json --clobber
-          if [ -f out/Podcats.ipa ] && [ "${{ steps.tests.outcome }}" = "success" ]; then gh release upload ios-build out/Podcats.ipa --clobber; fi
+          if [ -f out/Podcats.ipa ] && [ "${{ steps.tests.outcome }}" = "success" ] && [ "${{ steps.uitests.outcome }}" = "success" ]; then gh release upload ios-build out/Podcats.ipa --clobber; fi
 
       - name: Result
         if: always()
         run: |
           cat out/status.json
-          [ "${{ steps.core.outcome }}" = success ] && [ "${{ steps.simbuild.outcome }}" = success ] && [ "${{ steps.tests.outcome }}" = success ] && [ "${{ steps.ipa.outcome }}" = success ]
+          [ "${{ steps.core.outcome }}" = success ] && [ "${{ steps.simbuild.outcome }}" = success ] && [ "${{ steps.tests.outcome }}" = success ] && [ "${{ steps.uitests.outcome }}" = success ] && [ "${{ steps.ipa.outcome }}" = success ]

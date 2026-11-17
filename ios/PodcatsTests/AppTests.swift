@@ -100,4 +100,40 @@ final class AppTests: XCTestCase {
         lib.remove([ep.id, again.id])
         XCTAssertFalse(FileManager.default.fileExists(atPath: Paths.m4a(again.id).path))
     }
+
+    /// Files handed over by the picker or by another app, and files put into the Files folder, become episodes.
+    func testScriptsComeIn() async throws {
+        let lib = Library.shared
+        let fm = FileManager.default
+        let before = Set(lib.episodes.map { $0.id })
+        let tmp = fm.temporaryDirectory.appendingPathComponent("in-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let a = tmp.appendingPathComponent("Picked A.txt"), b = tmp.appendingPathComponent("Picked B.md"), c = tmp.appendingPathComponent("empty.txt"), d = tmp.appendingPathComponent("No Extension")
+        try Data("ANA: Hello.\nBEN: Hi there.".utf8).write(to: a)
+        try "# Its Own Title\n\nOne voice reads this.".data(using: .utf16)!.write(to: b)
+        try Data("---\n".utf8).write(to: c)
+        try Data("A file with no extension still reads.".utf8).write(to: d)
+        let r = Importer.add(files: [a, b, c, d])
+        XCTAssertEqual(r.added, 3)
+        XCTAssertEqual(r.problems.count, 1)
+        let titles = Set(lib.episodes.filter { !before.contains($0.id) }.map { $0.title })
+        XCTAssertEqual(titles, ["Picked A", "Its Own Title", "No Extension"])
+
+        // the Files folder: scripts in it are added once and moved aside; audio files there are left alone
+        try Data("Dropped into the folder. It is read aloud.".utf8).write(to: Paths.documents.appendingPathComponent("Dropped.txt"))
+        try Data([0, 1, 2]).write(to: Paths.documents.appendingPathComponent("not a script.m4a"))
+        let r2 = Importer.addFromFilesFolder()
+        XCTAssertEqual(r2.added, 1)
+        XCTAssertTrue(lib.episodes.contains { $0.title == "Dropped" })
+        XCTAssertFalse(fm.fileExists(atPath: Paths.documents.appendingPathComponent("Dropped.txt").path))
+        XCTAssertTrue(fm.fileExists(atPath: Paths.documents.appendingPathComponent(Importer.addedFolder).appendingPathComponent("Dropped.txt").path))
+        XCTAssertTrue(fm.fileExists(atPath: Paths.documents.appendingPathComponent("not a script.m4a").path))
+        XCTAssertEqual(Importer.addFromFilesFolder().added, 0, "not added a second time")
+
+        let mine = Set(lib.episodes.filter { !before.contains($0.id) }.map { $0.id })
+        for id in mine { Preparer.shared.invalidate(id) }
+        lib.remove(mine)
+        try? fm.removeItem(at: Paths.documents.appendingPathComponent("not a script.m4a"))
+        try? fm.removeItem(at: Paths.documents.appendingPathComponent(Importer.addedFolder))
+    }
 }

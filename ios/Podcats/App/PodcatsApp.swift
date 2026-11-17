@@ -24,6 +24,7 @@ struct PodcatsApp: App {
         nc.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             Log.shared.add("app", "terminating")
         }
+        Demo.resetIfAsked()
         Demo.seedIfAsked()
     }
 
@@ -67,6 +68,31 @@ enum Demo {
         let a = ProcessInfo.processInfo.arguments
         guard let i = a.firstIndex(of: "-open"), i + 1 < a.count else { return nil }
         return a[i + 1]
+    }
+
+    /// `-pickerdir`: the file picker opens in a folder holding two sample scripts (for the test that drives the picker).
+    static var pickerDirectory: URL? {
+        guard ProcessInfo.processInfo.arguments.contains("-pickerdir") else { return nil }
+        return Paths.documents.appendingPathComponent("Picker Test", isDirectory: true)
+    }
+
+    /// `-reset`: start with nothing, as after a fresh install.
+    static func resetIfAsked() {
+        let args = ProcessInfo.processInfo.arguments
+        let fm = FileManager.default
+        if args.contains("-reset") {
+            Library.shared.remove(Set(Library.shared.episodes.map { $0.id }))
+            for u in (try? fm.contentsOfDirectory(at: Paths.documents, includingPropertiesForKeys: nil)) ?? [] { try? fm.removeItem(at: u) }
+            Library.shared.flush()
+        }
+        if let dir = pickerDirectory {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? Data("ANA: This is the first picked script. It has two speakers.\nBEN: And this is the second voice, reading one line.".utf8).write(to: dir.appendingPathComponent("Ferry One.txt"))
+            try? Data("A second picked script, with a single voice. It is short, and it ends here.".utf8).write(to: dir.appendingPathComponent("Ferry Two.txt"))
+        }
+        if args.contains("-dropfile") {
+            try? Data("This script was put into the Files folder. Nobody picked it. It is read by one voice.".utf8).write(to: Paths.documents.appendingPathComponent("Dropped In.txt"))
+        }
     }
 
     static func seedIfAsked() {

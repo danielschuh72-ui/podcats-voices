@@ -1,5 +1,5 @@
 import SwiftUI
-import UniformTypeIdentifiers
+import UIKit
 
 struct LibraryView: View {
     @EnvironmentObject var library: Library
@@ -32,20 +32,29 @@ struct LibraryView: View {
         .sheet(isPresented: $showPlayer) { PlayerView() }
         .sheet(item: $share) { ShareSheet(items: $0.urls) }
         .sheet(item: $options) { EpisodeOptionsView(episode: $0) }
-        .fileImporter(isPresented: $showImport, allowedContentTypes: [.plainText, .text, .zip, .json], allowsMultipleSelection: true) { result in
-            switch result {
-            case .success(let urls): message = Importer.summary(Importer.add(files: urls))
-            case .failure(let error): message = Log.text(error)
+        .sheet(isPresented: $showImport) {
+            DocumentPicker { urls in
+                showImport = false
+                if !urls.isEmpty { report(Importer.add(files: urls)) }
             }
+            .ignoresSafeArea()
         }
-        .onOpenURL { url in message = Importer.summary(Importer.add(files: [url])) }
+        .onOpenURL { url in report(Importer.add(files: [url])) }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            let r = Importer.addFromFilesFolder()
+            if r.added + r.restored + r.problems.count > 0 { report(r) }
+        }
         .alert("Podcats", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(message ?? "") }
         .confirmationDialog("Delete \(selection.count) episode\(selection.count == 1 ? "" : "s")?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { delete(selection) }
         } message: { Text("Their audio and their copies in the Files app are deleted too.") }
-        .onAppear { openForScreenshot() }
+        .onAppear {
+            let r = Importer.addFromFilesFolder()
+            if r.added + r.problems.count > 0 { report(r) }
+            openForScreenshot()
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -114,6 +123,15 @@ struct LibraryView: View {
         return selection.isEmpty ? "Select Episodes" : "\(selection.count) Selected"
     }
 
+    /// Say what came of an import, a moment later, so the message does not collide with the picker going away.
+    private func report(_ r: Importer.Result) {
+        guard let text = Importer.summary(r) else { return }
+        Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            message = text
+        }
+    }
+
     private func tap(_ ep: Episode) {
         if ep.ready { player.open(ep.id); showPlayer = true }
         else if ep.tries >= 3 { preparer.retry(ep.id) }
@@ -161,6 +179,8 @@ struct EmptyLibrary: View {
                 .multilineTextAlignment(.center).foregroundStyle(.secondary)
             Button(action: files) { Label("Add Files", systemImage: "folder").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).controlSize(.large)
             Button(action: paste) { Label("Paste or Type a Script", systemImage: "doc.on.clipboard").frame(maxWidth: .infinity) }.buttonStyle(.bordered).controlSize(.large)
+            Text("Or put .txt files in the Files app under On My iPhone, Podcats. They are added the next time this app comes to the front.")
+                .font(.footnote).multilineTextAlignment(.center).foregroundStyle(.secondary)
         }
         .padding(32)
     }
