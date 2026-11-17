@@ -92,7 +92,7 @@ jobs:
           set -o pipefail
           rm -rf ui.xcresult
           xcodebuild test-without-building -project Podcats.xcodeproj -scheme Podcats -destination "id=${{ steps.sim.outputs.id }}" \
-            -derivedDataPath dd -only-testing:PodcatsUITests -resultBundlePath ui.xcresult 2>&1 | tee out/ui-tests.log | grep -E "Test Case|error:|failed|passed|TEST|\*\*" || true
+            -derivedDataPath dd -only-testing:PodcatsUITests -test-iterations 3 -resultBundlePath ui.xcresult 2>&1 | tee out/ui-tests.log | grep -E "Test Case|error:|failed|passed|TEST|\*\*" || true
           mkdir -p out/ui
           xcrun xcresulttool export attachments --path ui.xcresult --output-path out/ui || true
           grep -q "TEST EXECUTE SUCCEEDED\|TEST SUCCEEDED" out/ui-tests.log
