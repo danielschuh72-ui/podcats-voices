@@ -62,11 +62,14 @@ final class FlowTests: XCTestCase {
 
         // play
         row1.tap()
-        let pause = app.buttons["Pause"].firstMatch
+        // the big button of the player sheet (the small one of the bar underneath has the same name)
+        let pause = app.buttons["pause.circle.fill"].firstMatch
         XCTAssertTrue(pause.waitForExistence(timeout: 15), "the player opened and is playing")
         snap("06-playing")
         pause.tap()
-        XCTAssertTrue(app.buttons["Play"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["play.circle.fill"].firstMatch.waitForExistence(timeout: 5), "pausing shows the play button")
+        app.buttons["goforward.30"].firstMatch.tap()
+        snap("06b-paused")
         app.buttons["Done"].firstMatch.tap()
 
         // select both, share

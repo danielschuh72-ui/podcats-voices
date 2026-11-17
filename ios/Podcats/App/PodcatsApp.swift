@@ -87,7 +87,7 @@ enum Demo {
         }
         if let dir = pickerDirectory {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-            try? Data("ANA: This is the first picked script. It has two speakers.\nBEN: And this is the second voice, reading one line.".utf8).write(to: dir.appendingPathComponent("Ferry One.txt"))
+            try? Data("ANA: This is the first picked script. It has two speakers, and it goes on for a little while so that there is time to pause it.\nBEN: And this is the second voice, reading a line of its own. The ferry leaves at six. The market opens before it lands.\nANA: The bread is gone by a quarter past. The flower seller says this is her last year. Nobody believes her.".utf8).write(to: dir.appendingPathComponent("Ferry One.txt"))
             try? Data("A second picked script, with a single voice. It is short, and it ends here.".utf8).write(to: dir.appendingPathComponent("Ferry Two.txt"))
         }
         if args.contains("-dropfile") {
