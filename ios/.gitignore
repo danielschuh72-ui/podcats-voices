@@ -1,0 +1,6 @@
+.build/
+build/
+out/
+*.xcodeproj
+Podcats/Info.plist
+Podcats/Resources/Models/

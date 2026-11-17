@@ -1,0 +1,69 @@
+# The Xcode project is generated from this file by XcodeGen (`xcodegen generate`); it is not kept in the repository.
+name: Podcats
+options:
+  bundleIdPrefix: app.podcats
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+packages:
+  ptts:
+    url: https://github.com/gradium-ai/xn-ptts.git
+    exactVersion: 0.7.1
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    EXCLUDED_ARCHS: x86_64   # the Phonon core is built for arm64 only
+    DEVELOPMENT_TEAM: ""
+targets:
+  Podcats:
+    type: application
+    platform: iOS
+    sources:
+      - path: Podcats
+        excludes:
+          - "Resources/Models"
+          - "Resources/Models/**"
+      # The Phonon Core ML model folder, copied whole (a folder reference): the build machine downloads it, see ci/get-models.sh
+      - path: Podcats/Resources/Models
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: ptts
+        product: ptts
+    info:
+      path: Podcats/Info.plist
+      properties:
+        CFBundleDisplayName: Podcats
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio]              # keeps preparing and playing with the phone locked
+        UIFileSharingEnabled: true              # the Documents folder shows in the Files app
+        LSSupportsOpeningDocumentsInPlace: true
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleDocumentTypes:                  # "Open in Podcats" for text files
+          - CFBundleTypeName: Script
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.plain-text, public.text]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.podcats.ios
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    scheme:
+      testTargets: [PodcatsTests]
+  PodcatsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [PodcatsTests]
+    dependencies:
+      - target: Podcats
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.podcats.ios.tests
+        GENERATE_INFOPLIST_FILE: YES

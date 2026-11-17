@@ -1,0 +1,5 @@
+The ferry leaves the island at six in the morning, and by the time it reaches the mainland the market has already opened, the bread has already sold out at the first stall, the fishmonger has already argued with the man who sells ice, and the woman who runs the flower stand has already decided, as she does every single day, that this will be the last year she gets up before dawn to sell tulips to people who do not look at them, although everybody who knows her says she will be there next spring exactly as before.
+
+Averyveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryverylongword without commas here to force the hard cut path in the splitter when there is nowhere good to break the text at all and it keeps going and going.
+
+Short. Tiny. Ok. These merge together because each is under thirty characters long. And this one is a longer sentence that should stand apart from the short ones before it.

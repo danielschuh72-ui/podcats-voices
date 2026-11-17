@@ -1,0 +1,26 @@
+# The Title Of This One ##
+
+ANA: Hello there. This is Dr. Smith vs. Mr. Jones, etc. And it works!  Right?
+ben (laughing): yes... "Quite so." 'Indeed.' (Maybe.) [aside] It costs $1,250,000.00 e.g. a lot. No. 5 is next.
+**Carla**: Three speakers now — see https://example.com/a?b=1 and [a link](http://x.y/z) here.
+- ANA: A list item speaker: with a colon inside.
+> ben: quoted speaker…and an ellipsis… Then more.
+Note: this is not a speaker.
+Sources: neither is this
+Step 3: nor this
+---
+***
+[stage direction only]
+* * *
+Just narration with no speaker at all. It has 2 sentences.
+ANA:
+ANA:    
+Émile Zola: Ça va? Über alles. Ñandú. Ýes.
+A B C D: too many words for a name: really.
+Mr. O'Brien-Smith Jr.: Names with dots, quotes and hyphens.
+x_y.z: lower case name gets a capital.
+ANA: 😀 Emoji ☀️ are removed ✅ entirely.
+ANA: `code` and ~~strike~~ and __bold__ and #hash.
+ANA: He said "Stop." Then she said 'Go.' (Really.) [Yes.] “Smart.” ‘Quotes.’ Done
+ANA: 3.14 is pi. 10.5% of U.S. sales. The U.S. Army. e.g. this. i.e. That. approx. 5 Vol. 2 St. John.
+ANA: Wait!? What?! No... Yes!!! OK.) Fine.] End."

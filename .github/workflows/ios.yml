@@ -1,0 +1,150 @@
+name: iOS app
+
+# Builds the native Podcats app on a hosted Mac, runs its tests in the iPhone simulator, takes screenshots, and
+# publishes an unsigned .ipa (to be signed for one's own phone, e.g. with Signulous) on the "ios-build" release.
+on:
+  push:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          mkdir -p out
+          sw_vers | tee out/machine.txt
+          xcodebuild -version | tee -a out/machine.txt
+          swift --version 2>&1 | tee -a out/machine.txt
+          which xcodegen || brew install xcodegen
+
+      - name: Core tests (the script parser against the web app's own output)
+        id: core
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee out/core-tests.log
+
+      - name: Models and project
+        id: project
+        run: |
+          ci/get-models.sh
+          xcodegen generate
+          n=${{ github.run_number }}
+          sed -i '' "s/CURRENT_PROJECT_VERSION: \"1\"/CURRENT_PROJECT_VERSION: \"$n\"/" project.yml && xcodegen generate
+
+      - name: Simulator
+        id: sim
+        run: |
+          id=$(python3 ci/pick-simulator.py 2>> out/machine.txt)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$id" || true
+          xcrun simctl bootstatus "$id" -b | tail -2
+
+      - name: Build for the simulator
+        id: simbuild
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project Podcats.xcodeproj -scheme Podcats -destination "id=${{ steps.sim.outputs.id }}" \
+            -derivedDataPath dd CODE_SIGNING_ALLOWED=NO 2>&1 | tee out/sim-build.log | grep -E "error:|warning: unre|BUILD|\*\*" || true
+          grep -q "TEST BUILD SUCCEEDED" out/sim-build.log
+
+      - name: App tests in the simulator (real voices, real files)
+        id: tests
+        if: steps.simbuild.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Podcats.xcodeproj -scheme Podcats -destination "id=${{ steps.sim.outputs.id }}" \
+            -derivedDataPath dd 2>&1 | tee out/app-tests.log | grep -E "Test Case|error:|failed|passed|TEST|\*\*" || true
+          grep -q "TEST EXECUTE SUCCEEDED\|TEST SUCCEEDED" out/app-tests.log
+
+      - name: What the tests made
+        if: steps.simbuild.outcome == 'success'
+        continue-on-error: true
+        run: |
+          data=$(xcrun simctl get_app_container "${{ steps.sim.outputs.id }}" app.podcats.ios data)
+          mkdir -p out/made
+          cp -R "$data/Documents/." out/made/ || true
+          ls -la out/made
+
+      - name: Screenshots
+        if: steps.simbuild.outcome == 'success'
+        continue-on-error: true
+        run: |
+          id=${{ steps.sim.outputs.id }}
+          app=dd/Build/Products/Debug-iphonesimulator/Podcats.app
+          mkdir -p out/shots
+          xcrun simctl install "$id" "$app"
+          shot() { # name, seconds to wait, launch arguments...
+            name=$1; secs=$2; shift 2
+            xcrun simctl terminate "$id" app.podcats.ios 2>/dev/null || true
+            xcrun simctl launch "$id" app.podcats.ios "$@"
+            sleep "$secs"
+            xcrun simctl io "$id" screenshot "out/shots/$name.png"
+          }
+          shot 1-library 8
+          shot 2-player 8 -open player
+          shot 3-select 6 -open select
+          shot 4-settings 6 -open settings
+          shot 5-add 6 -open add
+          xcrun simctl terminate "$id" app.podcats.ios || true
+          xcrun simctl uninstall "$id" app.podcats.ios
+          xcrun simctl install "$id" "$app"
+          shot 6-empty 6
+          shot 7-preparing 5 -seed
+          sleep 40
+          xcrun simctl io "$id" screenshot out/shots/8-prepared.png
+
+      - name: Build for the iPhone (unsigned)
+        id: ipa
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild build -project Podcats.xcodeproj -scheme Podcats -configuration Release -sdk iphoneos -destination "generic/platform=iOS" \
+            -derivedDataPath ddr CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee out/ipa-build.log | grep -E "error:|BUILD|\*\*" || true
+          grep -q "BUILD SUCCEEDED" out/ipa-build.log
+          rm -rf Payload && mkdir Payload
+          cp -R ddr/Build/Products/Release-iphoneos/Podcats.app Payload/
+          test -f Payload/Podcats.app/Models/bundle.json
+          zip -qry out/Podcats.ipa Payload
+          ls -l out/Podcats.ipa
+          /usr/libexec/PlistBuddy -c Print Payload/Podcats.app/Info.plist > out/Info.plist.txt
+          lipo -info Payload/Podcats.app/Podcats | tee -a out/machine.txt
+
+      - name: Publish
+        if: always()
+        run: |
+          cat > out/status.json <<EOF
+          {"sha": "${{ github.sha }}", "run": ${{ github.run_number }}, "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+           "core": "${{ steps.core.outcome }}", "project": "${{ steps.project.outcome }}", "simbuild": "${{ steps.simbuild.outcome }}", "tests": "${{ steps.tests.outcome }}", "ipa": "${{ steps.ipa.outcome }}"}
+          EOF
+          for f in sim-build app-tests ipa-build; do [ -f out/$f.log ] && grep -n -E "error:|error |failed|Assert|XCTAssert|Fatal|crash" out/$f.log | head -200 > out/$f.errors.txt || true; done
+          (cd out && zip -qr results.zip . -x Podcats.ipa -x results.zip)
+          gh release view ios-build >/dev/null 2>&1 || gh release create ios-build --prerelease --title "Podcats for iPhone (unsigned build)" \
+            --notes "Built by the iOS app workflow. Podcats.ipa is unsigned: sign it for your own iPhone before installing. results.zip holds the logs, test outputs and screenshots of the same run."
+          gh release upload ios-build out/results.zip out/status.json --clobber
+          if [ -f out/Podcats.ipa ] && [ "${{ steps.tests.outcome }}" = "success" ]; then gh release upload ios-build out/Podcats.ipa --clobber; fi
+
+      - name: Result
+        if: always()
+        run: |
+          cat out/status.json
+          [ "${{ steps.core.outcome }}" = success ] && [ "${{ steps.simbuild.outcome }}" = success ] && [ "${{ steps.tests.outcome }}" = success ] && [ "${{ steps.ipa.outcome }}" = success ]
