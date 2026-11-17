@@ -46,9 +46,12 @@ final class FlowTests: XCTestCase {
         let open = app.buttons["Open"].firstMatch
         if open.waitForExistence(timeout: 5) { open.tap() } else { dump("no-open-button") }
 
-        let row1 = app.staticTexts["Ferry One"]
+        // back in the Library (the picker is gone), with a row for each picked file
+        XCTAssertTrue(app.buttons["Select"].firstMatch.waitForExistence(timeout: 20), "back in the Library")
+        func row(_ title: String) -> XCUIElement { return app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title + ",")).firstMatch }
+        let row1 = row("Ferry One")
         if !row1.waitForExistence(timeout: 20) { snap("04-not-added"); dump("after-open"); XCTFail("the picked files did not become episodes") }
-        XCTAssertTrue(app.staticTexts["Ferry Two"].waitForExistence(timeout: 5), "the second picked file became an episode too")
+        if !row("Ferry Two").waitForExistence(timeout: 10) { snap("04-second-missing"); dump("after-open"); XCTFail("the second picked file did not become an episode") }
         snap("04-added")
 
         // both prepared without being asked

@@ -9,7 +9,6 @@ struct LibraryView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<String>()
     @State private var showAdd = false
-    @State private var showImport = false
     @State private var showSettings = false
     @State private var showPlayer = false
     @State private var share: ShareItems?
@@ -32,13 +31,6 @@ struct LibraryView: View {
         .sheet(isPresented: $showPlayer) { PlayerView() }
         .sheet(item: $share) { ShareSheet(items: $0.urls) }
         .sheet(item: $options) { EpisodeOptionsView(episode: $0) }
-        .sheet(isPresented: $showImport) {
-            DocumentPicker { urls in
-                showImport = false
-                if !urls.isEmpty { report(Importer.add(files: urls)) }
-            }
-            .ignoresSafeArea()
-        }
         .onOpenURL { url in report(Importer.add(files: [url])) }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             let r = Importer.addFromFilesFolder()
@@ -59,7 +51,7 @@ struct LibraryView: View {
 
     @ViewBuilder private var content: some View {
         if library.episodes.isEmpty {
-            EmptyLibrary(paste: { showAdd = true }, files: { showImport = true })
+            EmptyLibrary(paste: { showAdd = true }, files: { pickFiles() })
         } else {
             List(selection: $selection) {
                 EngineBanner()
@@ -104,7 +96,7 @@ struct LibraryView: View {
                 if !library.episodes.isEmpty { Button("Select") { editMode = .active } }
                 Menu {
                     Button { showAdd = true } label: { Label("Paste or Type a Script", systemImage: "doc.on.clipboard") }
-                    Button { showImport = true } label: { Label("Add Files", systemImage: "folder") }
+                    Button { pickFiles() } label: { Label("Add Files", systemImage: "folder") }
                 } label: { Image(systemName: "plus") }.accessibilityLabel("Add")
             }
         }
@@ -129,6 +121,16 @@ struct LibraryView: View {
         Task {
             try? await Task.sleep(nanoseconds: 700_000_000)
             message = text
+        }
+    }
+
+    private func pickFiles() {
+        Task {
+            // let the menu that was tapped finish closing first
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            FilePicker.shared.present { urls in
+                if !urls.isEmpty { report(Importer.add(files: urls)) }
+            }
         }
     }
 
