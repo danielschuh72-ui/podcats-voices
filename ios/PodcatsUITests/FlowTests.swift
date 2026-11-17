@@ -40,8 +40,11 @@ final class FlowTests: XCTestCase {
         if !one.waitForExistence(timeout: 20) { snap("02-picker-missing"); dump("picker"); XCTFail("the picker did not show the sample files") }
         snap("02-picker")
         one.tap()
-        let two = anything("Ferry Two")
-        if two.exists { two.tap() }
+        // the first tap puts the picker into selecting; its own Select All then takes the second file too
+        let all = app.buttons["Select All"].firstMatch
+        XCTAssertTrue(all.waitForExistence(timeout: 10), "the picker allows several files")
+        all.tap()
+        sleep(1)
         snap("03-picked")
         let open = app.buttons["Open"].firstMatch
         if open.waitForExistence(timeout: 5) { open.tap() } else { dump("no-open-button") }
