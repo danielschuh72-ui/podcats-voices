@@ -47,7 +47,11 @@ final class FlowTests: XCTestCase {
         sleep(1)
         snap("03-picked")
         let open = app.buttons["Open"].firstMatch
-        if open.waitForExistence(timeout: 5) { open.tap() } else { dump("no-open-button") }
+        if open.waitForExistence(timeout: 5) { sleep(1); open.tap() } else { dump("no-open-button") }
+        // a tap made while the picker's bar is still changing can be swallowed by it: tap again if it is still there
+        var again = 0
+        while again < 3 && !app.buttons["Select"].firstMatch.waitForExistence(timeout: 6) && open.exists { open.tap(); again += 1 }
+        if again > 0 { let note = XCTAttachment(string: "Open needed \(again) more tap(s)"); note.name = "open-retaps"; note.lifetime = .keepAlways; add(note) }
 
         // back in the Library (the picker is gone), with a row for each picked file
         XCTAssertTrue(app.buttons["Select"].firstMatch.waitForExistence(timeout: 20), "back in the Library")
