@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "PodcatsCore",
+    platforms: [.macOS(.v13)],
     targets: [
         .target(name: "PodcatsCore", path: "Podcats/Core"),
         .testTarget(name: "PodcatsCoreTests", dependencies: ["PodcatsCore"], path: "CoreTests", resources: [.copy("fixtures")]),

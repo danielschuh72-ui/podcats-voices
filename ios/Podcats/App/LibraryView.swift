@@ -22,7 +22,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Podcats")
+                .navigationTitle(editing ? selectionText : "Podcats")
                 .toolbar { toolbar }
                 .environment(\.editMode, $editMode)
                 .safeAreaInset(edge: .bottom) { if !editing && player.episodeID != nil { MiniPlayer(open: { showPlayer = true }) } }
@@ -103,8 +103,6 @@ struct LibraryView: View {
             if editing {
                 Button { shareSelected() } label: { Label("Share", systemImage: "square.and.arrow.up") }.disabled(readySelected.isEmpty)
                 Spacer()
-                Text(selectionText).font(.footnote).foregroundStyle(.secondary)
-                Spacer()
                 Button(role: .destructive) { confirmDelete = true } label: { Label("Delete", systemImage: "trash") }.disabled(selection.isEmpty)
             }
         }
@@ -113,9 +111,7 @@ struct LibraryView: View {
     private var readySelected: [String] { return library.episodes.filter { selection.contains($0.id) && $0.ready }.map { $0.id } }
 
     private var selectionText: String {
-        if selection.isEmpty { return "Select episodes" }
-        let waiting = selection.count - readySelected.count
-        return waiting > 0 ? "\(selection.count) selected, \(waiting) not prepared yet" : "\(selection.count) selected"
+        return selection.isEmpty ? "Select Episodes" : "\(selection.count) Selected"
     }
 
     private func tap(_ ep: Episode) {

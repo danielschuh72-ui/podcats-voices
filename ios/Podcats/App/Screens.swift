@@ -201,7 +201,12 @@ struct EpisodeOptionsView: View {
             e.duo = duo; e.host1 = host1; e.host2 = host2; e.pause = pause
             if remake { e.resetAudio(); e.fileName = nil }
         }
-        if renamed && !remake { Preparer.shared.saveToFiles(id) }
+        if renamed && !remake && episode.ready {
+            Task {
+                await AudioFiles.tag(Paths.m4a(id), title: newTitle)
+                Preparer.shared.saveToFiles(id)
+            }
+        }
         Preparer.shared.kick()
         dismiss()
     }
