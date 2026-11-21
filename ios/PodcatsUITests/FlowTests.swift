@@ -148,8 +148,6 @@ final class FlowTests: XCTestCase {
         let remove = app.buttons["Remove Update"].firstMatch
         if !remove.isHittable { app.swipeUp() }
         remove.tap()
-        XCTAssertTrue(app.alerts.buttons["OK"].firstMatch.waitForExistence(timeout: 10))
-        app.alerts.buttons["OK"].firstMatch.tap()
         XCTAssertTrue(anything("Installed, None installed").waitForExistence(timeout: 5), "removed")
         snap("32-update-removed")
     }
@@ -166,15 +164,11 @@ final class FlowTests: XCTestCase {
         while !(check.exists && check.isHittable) && swipes < 4 { app.swipeUp(); swipes += 1 }
         XCTAssertTrue(anything("Installed, None installed").exists, "nothing installed to begin with")
         check.tap()
-        let told = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 1 installed'")).firstMatch
-        XCTAssertTrue(told.waitForExistence(timeout: 40), "the update came down and was installed")
+        XCTAssertTrue(anything("Update 1 installed").waitForExistence(timeout: 40), "the update came down and was installed, and the screen says so")
         snap("40-update-downloaded")
-        app.alerts.buttons["OK"].firstMatch.tap()
         XCTAssertTrue(anything("Installed, Update 1").waitForExistence(timeout: 5), "Settings shows the downloaded update")
         check.tap()
-        let newest = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 1 is the newest'")).firstMatch
-        XCTAssertTrue(newest.waitForExistence(timeout: 40), "a second check finds nothing newer")
-        app.alerts.buttons["OK"].firstMatch.tap()
+        XCTAssertTrue(anything("Update 1 is the newest").waitForExistence(timeout: 40), "a second check finds nothing newer")
         snap("41-settings-after-update")
     }
 }

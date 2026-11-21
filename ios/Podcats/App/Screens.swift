@@ -283,6 +283,7 @@ struct UpdateSection: View {
             LabeledContent("Installed", value: status)
             if let n = updates.pack?.notes, !n.isEmpty { Text(n).font(.footnote).foregroundStyle(.secondary) }
             Button {
+                said = nil
                 Task {
                     switch await updates.check() {
                     case .installed(let v): said = "Update \(v) installed." + ((updates.pack?.notes ?? "").isEmpty ? "" : " " + (updates.pack?.notes ?? ""))
@@ -292,6 +293,8 @@ struct UpdateSection: View {
                 }
             } label: { Label(updates.checking ? "Checking…" : "Check for Updates", systemImage: "arrow.down.circle") }
             .disabled(updates.checking)
+            // said in the row itself, not in an alert: an alert raised from inside this list did not always appear
+            if let s = said { Text(s).font(.footnote).accessibilityIdentifier("updateResult") }
             Toggle("Check Automatically", isOn: Binding(get: { library.settings.autoUpdate ?? true }, set: { library.settings.autoUpdate = $0 }))
             if updates.pack != nil {
                 Button("Remove Update", role: .destructive) { updates.remove(); said = "The update was removed. The app works as it was built." }
@@ -299,8 +302,5 @@ struct UpdateSection: View {
         } header: { Text("Updates") } footer: {
             Text("An update is one small file from the app's page on GitHub. It can change how words are read, add voices and switch between ways of working that are already in the app, without installing the app again. It cannot add screens or fix the app's own code: that still takes a new version. Episodes already prepared keep their audio; use Prepare Again on an episode to have it read the new way. An update file can also be put into the Podcats folder in the Files app.")
         }
-        .alert("Updates", isPresented: Binding(get: { said != nil }, set: { if !$0 { said = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(said ?? "") }
     }
 }
