@@ -38,8 +38,8 @@ final class FlowTests: XCTestCase {
 
         let one = anything("Ferry One")
         // the picker now and then opens one folder up from the one it was pointed at: step into it, as a person would
-        let folder = anything("Picker Test")
-        if !one.waitForExistence(timeout: 10), folder.waitForExistence(timeout: 5) { folder.tap() }
+        // ("1 item" is what the folder above shows: only then is "Picker Test" a folder to open and not this folder's title)
+        if !one.waitForExistence(timeout: 25), app.staticTexts["1 item"].exists { app.staticTexts["Picker Test"].firstMatch.tap() }
         if !one.waitForExistence(timeout: 20) { snap("02-picker-missing"); dump("picker"); XCTFail("the picker did not show the sample files") }
         snap("02-picker")
         one.tap()
@@ -147,6 +147,7 @@ final class FlowTests: XCTestCase {
         snap("31-settings-update")
         let remove = app.buttons["Remove Update"].firstMatch
         if !remove.isHittable { app.swipeUp() }
+        sleep(2)
         remove.tap()
         XCTAssertTrue(anything("Installed, None installed").waitForExistence(timeout: 5), "removed")
         snap("32-update-removed")
@@ -163,10 +164,12 @@ final class FlowTests: XCTestCase {
         var swipes = 0
         while !(check.exists && check.isHittable) && swipes < 4 { app.swipeUp(); swipes += 1 }
         XCTAssertTrue(anything("Installed, None installed").exists, "nothing installed to begin with")
+        sleep(2)   // let the list come to rest: a tap on a list that is still moving only stops it
         check.tap()
         XCTAssertTrue(anything("Update 1 installed").waitForExistence(timeout: 40), "the update came down and was installed, and the screen says so")
         snap("40-update-downloaded")
         XCTAssertTrue(anything("Installed, Update 1").waitForExistence(timeout: 5), "Settings shows the downloaded update")
+        sleep(1)
         check.tap()
         XCTAssertTrue(anything("Update 1 is the newest").waitForExistence(timeout: 40), "a second check finds nothing newer")
         snap("41-settings-after-update")
