@@ -4,7 +4,7 @@ name: iOS app
 # publishes an unsigned .ipa (to be signed for one's own phone, e.g. with Signulous) on the "ios-build" release.
 on:
   push:
-    paths: ["ios/**", ".github/workflows/ios.yml"]
+    paths: ["ios/**", "!ios/update/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +23,8 @@ jobs:
         working-directory: ios
     env:
       GH_TOKEN: ${{ github.token }}
+      # the tests fetch the update file of the commit being built, the way the app fetches the published one
+      TEST_RUNNER_UPDATE_URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/ios/update/podcats-update.json
     steps:
       - uses: actions/checkout@v4
 

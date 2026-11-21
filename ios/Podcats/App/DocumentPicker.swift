@@ -16,7 +16,7 @@ final class FilePicker: NSObject, UIDocumentPickerDelegate {
     func present(onFiles: @escaping ([URL]) -> Void) {
         guard let top = FilePicker.topController() else { Log.shared.add("error", "picker: nothing to present from"); return }
         // .data lets any file be chosen: a script without an extension, or one iOS files under an odd type, is not greyed out
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.plainText, .text, .json, .zip, .data], asCopy: false)
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.plainText, .text, .json, .zip, .data], asCopy: Updates.shared.pickerCopies)
         picker.allowsMultipleSelection = true
         picker.delegate = self
         if let dir = Demo.pickerDirectory { picker.directoryURL = dir }

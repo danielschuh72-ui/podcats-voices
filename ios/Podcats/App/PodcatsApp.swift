@@ -37,6 +37,7 @@ struct PodcatsApp: App {
                 .onAppear {
                     Log.shared.setLocked(!UIApplication.shared.isProtectedDataAvailable)
                     preparer.kick()
+                    if library.settings.autoUpdate ?? true { Updates.shared.checkIfDue() }
                 }
                 .onChange(of: phase) { _, now in phaseChanged(now) }
         }
@@ -81,6 +82,7 @@ enum Demo {
         let args = ProcessInfo.processInfo.arguments
         let fm = FileManager.default
         if args.contains("-reset") {
+            Updates.shared.remove()
             Library.shared.remove(Set(Library.shared.episodes.map { $0.id }))
             for u in (try? fm.contentsOfDirectory(at: Paths.documents, includingPropertiesForKeys: nil)) ?? [] { try? fm.removeItem(at: u) }
             Library.shared.flush()
@@ -89,6 +91,10 @@ enum Demo {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
             try? Data("ANA: This is the first picked script. It has two speakers, and it goes on for a little while so that there is time to pause it.\nBEN: And this is the second voice, reading a line of its own. The ferry leaves at six. The market opens before it lands.\nANA: The bread is gone by a quarter past. The flower seller says this is her last year. Nobody believes her.".utf8).write(to: dir.appendingPathComponent("Ferry One.txt"))
             try? Data("A second picked script, with a single voice. It is short, and it ends here.".utf8).write(to: dir.appendingPathComponent("Ferry Two.txt"))
+        }
+        if args.contains("-dropupdate") {
+            let update = #"{"app":"podcats-update","format":1,"version":99,"notes":"A test update.","rules":[{"find":"\\bIFRS\\b","replace":"I F R S"}],"js":"function prepareText(t) { return t.replace(/\\((\\d+)\\)/g, 'minus $1'); }","moreVoices":["Freya"]}"#
+            try? Data(update.utf8).write(to: Paths.documents.appendingPathComponent(UpdatePack.fileName))
         }
         if args.contains("-dropfile") {
             try? Data("This script was put into the Files folder. Nobody picked it. It is read by one voice.".utf8).write(to: Paths.documents.appendingPathComponent("Dropped In.txt"))

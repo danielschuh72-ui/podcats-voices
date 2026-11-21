@@ -37,6 +37,19 @@ final class Preparer: ObservableObject {
         if currentID == id { cancelled.insert(id) }
     }
 
+    /// Make this episode's audio again from the start (after an update changed how words are read, say).
+    func prepareAgain(_ id: String) {
+        guard let ep = library.episode(id) else { return }
+        invalidate(id)
+        Player.shared.close(ifPlaying: id)
+        try? FileManager.default.removeItem(at: Paths.pcm(id))
+        try? FileManager.default.removeItem(at: Paths.m4a(id))
+        if let f = ep.fileName { try? FileManager.default.removeItem(at: Paths.documents.appendingPathComponent(f)) }
+        library.update(id) { $0.resetAudio(); $0.fileName = nil }
+        Log.shared.add("prepare", "again: \(ep.title)")
+        kick()
+    }
+
     /// Give episodes that failed three times another go.
     func retry(_ id: String) {
         library.update(id) { $0.tries = 0; $0.failed = nil }
@@ -47,7 +60,7 @@ final class Preparer: ObservableObject {
         Session.shared.setPreparing(true)
         if engine != .ready {
             engine = .loading(firstTime: Engine.shared.needsCompiling())
-            do { try await Engine.shared.load(); engine = .ready } catch {
+            do { try await Engine.shared.load(unit: Updates.shared.computeUnit); engine = .ready } catch {
                 engine = .failed(Log.text(error))
                 Log.shared.error("engine", error)
                 return
@@ -87,7 +100,7 @@ final class Preparer: ObservableObject {
             while i < segs.count {
                 if Task.isCancelled || cancelled.contains(id) || library.episode(id) == nil { cancelled.remove(id); Log.shared.add("prepare", "stopped \(ep.title)"); return }
                 let s = segs[i]
-                let samples = try await Engine.shared.speak(s.text, voice: s.voice)
+                let samples = try await Engine.shared.speak(Updates.shared.prepare(s.text), voice: s.voice)
                 if cancelled.contains(id) || library.episode(id) == nil { cancelled.remove(id); Log.shared.add("prepare", "stopped \(ep.title)"); return }
                 bytes = try AudioFiles.append(samples, pause: s.pause, to: Paths.pcm(id), keep: bytes)
                 made += Double(samples.count) / AudioFiles.rate
@@ -97,12 +110,14 @@ final class Preparer: ObservableObject {
                 if done % 25 == 0 { Log.shared.add("prepare", "\(ep.title): \(done) of \(segs.count)") }
             }
             let pcm = Paths.pcm(id), out = Paths.m4a(id)
-            let seconds = try await Task.detached(priority: .userInitiated) { try AudioFiles.encode(pcm: pcm, to: out) }.value
+            let bitRate = Updates.shared.bitRate
+            let seconds = try await Task.detached(priority: .userInitiated) { try AudioFiles.encode(pcm: pcm, to: out, wanting: bitRate) }.value
             await AudioFiles.tag(out, title: ep.title)
             try? FileManager.default.removeItem(at: pcm)
             let took = Date().timeIntervalSince(t0)
             let speed = took > 0 ? made / took : 0
-            library.update(id) { $0.ready = true; $0.duration = seconds; $0.partBytes = 0; $0.failed = nil; $0.tries = 0; if made > 5 { $0.speed = speed } }
+            let usedUpdate = Updates.shared.pack?.version
+            library.update(id) { $0.update = usedUpdate; $0.ready = true; $0.duration = seconds; $0.partBytes = 0; $0.failed = nil; $0.tries = 0; if made > 5 { $0.speed = speed } }
             Log.shared.add("prepare", "done \(ep.title): \(Int(seconds)) s of audio; this run made \(Int(made)) s in \(String(format: "%.1f", took)) s")
             saveToFiles(id)
         } catch {
@@ -112,7 +127,7 @@ final class Preparer: ObservableObject {
             // start the engine afresh next time: whatever went wrong may have been in it
             await Engine.shared.unload()
             engine = .idle
-            do { try await Engine.shared.load(); engine = .ready } catch { engine = .failed(Log.text(error)) }
+            do { try await Engine.shared.load(unit: Updates.shared.computeUnit); engine = .ready } catch { engine = .failed(Log.text(error)) }
         }
     }
 

@@ -14,6 +14,7 @@ actor Engine {
     private(set) var voices: [String] = []
     private(set) var loadSeconds: Double = 0
     private(set) var compiled = false
+    private(set) var usedUnit = ""
 
     var isLoaded: Bool { return tts != nil }
 
@@ -22,7 +23,7 @@ actor Engine {
         return !PhononModels.isInstalled() || Phonon.needsCompiling(PhononModels.defaultDirectory)
     }
 
-    func load() async throws {
+    func load(unit: String = "cpu") async throws {
         if tts != nil { return }
         guard let bundled = Bundle.main.url(forResource: "Models", withExtension: nil) else {
             throw Failure(description: "The voices are missing from this copy of the app.")
@@ -30,17 +31,25 @@ actor Engine {
         let t0 = Date()
         compiled = needsCompiling()
         let dir = try PhononModels.install(bundled: bundled)
-        let p = try await Phonon.load(models: dir, language: .english, computeUnit: .cpu)
+        var p: Phonon
+        if unit == "neuralEngine" {
+            do { p = try await Phonon.load(models: dir, language: .english, computeUnit: .neuralEngine); usedUnit = "neuralEngine" } catch {
+                Log.shared.error("engine on the Neural Engine, falling back to the CPU", error)
+                p = try await Phonon.load(models: dir, language: .english, computeUnit: .cpu); usedUnit = "cpu"
+            }
+        } else {
+            p = try await Phonon.load(models: dir, language: .english, computeUnit: .cpu); usedUnit = "cpu"
+        }
         tts = p
         voices = p.voices
         voice = p.voice
         loadSeconds = Date().timeIntervalSince(t0)
-        Log.shared.add("engine", "ready in \(String(format: "%.1f", loadSeconds)) s" + (compiled ? " (compiled)" : "") + ", \(voices.count) voices")
+        Log.shared.add("engine", "ready in \(String(format: "%.1f", loadSeconds)) s" + (compiled ? " (compiled)" : "") + ", \(voices.count) voices, on \(usedUnit)")
     }
 
     /// One piece of text in one voice: mono Float32 samples at 24 kHz.
     func speak(_ text: String, voice want: String) async throws -> [Float] {
-        try await load()
+        if tts == nil { try await load() }
         guard let p = tts else { throw Failure(description: "The voices did not load.") }
         if want != voice {
             guard voices.contains(want) else { throw Failure(description: "This copy of the app has no voice named \(want).") }

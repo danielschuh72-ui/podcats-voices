@@ -127,4 +127,51 @@ final class FlowTests: XCTestCase {
         snap("22-options")
         app.buttons["Cancel"].firstMatch.tap()
     }
+
+    /// An update file put into the app's folder is installed; Settings shows it and can remove it.
+    func testUpdateFileDroppedIn() {
+        app.launchArguments = ["-reset", "-dropupdate"]
+        app.launch()
+        let told = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 99 installed'")).firstMatch
+        XCTAssertTrue(told.waitForExistence(timeout: 30), "the app says the update was installed")
+        snap("30-update-installed")
+        app.alerts.buttons["OK"].firstMatch.tap()
+        app.buttons["Settings"].firstMatch.tap()
+        let installed = app.staticTexts["Update 99"]
+        var swipes = 0
+        while !installed.exists && swipes < 4 { app.swipeUp(); swipes += 1 }
+        XCTAssertTrue(installed.waitForExistence(timeout: 5), "Settings shows the installed update")
+        snap("31-settings-update")
+        let remove = app.buttons["Remove Update"].firstMatch
+        if !remove.isHittable { app.swipeUp() }
+        remove.tap()
+        XCTAssertTrue(app.alerts.buttons["OK"].firstMatch.waitForExistence(timeout: 10))
+        app.alerts.buttons["OK"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["None installed"].waitForExistence(timeout: 5), "removed")
+        snap("32-update-removed")
+    }
+
+    /// Settings > Check for Updates fetches the update file from the internet and installs it.
+    func testCheckForUpdates() throws {
+        let address = try XCTUnwrap(ProcessInfo.processInfo.environment["UPDATE_URL"], "UPDATE_URL is passed to the tests")
+        app.launchArguments = ["-reset", "-updateurl", address]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["No Episodes Yet"].waitForExistence(timeout: 20))
+        app.buttons["Settings"].firstMatch.tap()
+        let check = app.buttons["Check for Updates"].firstMatch
+        var swipes = 0
+        while !(check.exists && check.isHittable) && swipes < 4 { app.swipeUp(); swipes += 1 }
+        XCTAssertTrue(app.staticTexts["None installed"].exists, "nothing installed to begin with")
+        check.tap()
+        let told = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 1 installed'")).firstMatch
+        XCTAssertTrue(told.waitForExistence(timeout: 40), "the update came down and was installed")
+        snap("40-update-downloaded")
+        app.alerts.buttons["OK"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Update 1"].waitForExistence(timeout: 5))
+        check.tap()
+        let newest = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 1 is the newest'")).firstMatch
+        XCTAssertTrue(newest.waitForExistence(timeout: 40), "a second check finds nothing newer")
+        app.alerts.buttons["OK"].firstMatch.tap()
+        snap("41-settings-after-update")
+    }
 }

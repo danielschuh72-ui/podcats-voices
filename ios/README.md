@@ -26,6 +26,21 @@ On a Mac: `ci/get-models.sh && xcodegen generate && open Podcats.xcodeproj`.
 
 Off a Mac, the parser can still be checked: `swift test` (Swift 6 toolchain for Linux).
 
+## Updating without a new .ipa
+
+Compiled Swift cannot be replaced on an iPhone without installing the app again. What can be replaced is data, and the app takes that from one file, `update/podcats-update.json` (`UpdatePack` in Core, `Updates` in the app):
+
+- `rules`: regular expressions applied to every piece of text before it is voiced (how acronyms and the like are read);
+- `js`: a JavaScript function `prepareText(text)` run after the rules, in JavaScriptCore, with nothing of the app exposed to it;
+- `moreVoices`: further voices from the model folder (it holds 38) to offer in the pickers;
+- `flags`: `computeUnit` (`cpu`/`neuralEngine`), `bitRate` of the .m4a, `pickerCopies`.
+
+To publish one: edit the file, raise `version`, push. `.github/workflows/ios-update.yml` checks it (`swift test --filter UpdateTests`, `node update/check-script.js`) and uploads it to the `ios-update` release, which is where Settings › Check for Updates looks (also by itself about twice a day, unless switched off). A file can also be handed over by hand: put it in On My iPhone › Podcats, or pick it with Add Files.
+
+An update cannot stop the app from working: it is checked before it is kept and its script is run once on a sample first; a script that fails later is switched off and the text goes to the voice as the rules left it; if the app ended while the script was running, the script stays off at the next launch; Settings › Remove Update goes back to the app as built. Episodes already prepared keep their audio; Prepare Again on an episode's screen makes it afresh. A script that never returns cannot be interrupted: `check-script.js` runs every published script with a time limit for that reason.
+
+Everything else (screens, fixes to the app's code, a new voice model) still takes a new .ipa.
+
 ## Staying alive in the background
 
 The app declares the `audio` background mode. Playing an episode keeps it running by itself. While episodes are being prepared and nothing is playing, `Session` loops a silent sound in a session that mixes with other apps, so their audio is not stopped. The voices run on the CPU, not the Neural Engine, so that preparing does not depend on what iOS allows a background app to use.

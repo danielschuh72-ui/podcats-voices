@@ -34,7 +34,7 @@ struct LibraryView: View {
         .onOpenURL { url in report(Importer.add(files: [url])) }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             let r = Importer.addFromFilesFolder()
-            if r.added + r.restored + r.problems.count > 0 { report(r) }
+            if r.added + r.restored + r.problems.count > 0 || r.update != nil { report(r) }
         }
         .alert("Podcats", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK", role: .cancel) {}
@@ -44,7 +44,7 @@ struct LibraryView: View {
         } message: { Text("Their audio and their copies in the Files app are deleted too.") }
         .onAppear {
             let r = Importer.addFromFilesFolder()
-            if r.added + r.problems.count > 0 { report(r) }
+            if r.added + r.problems.count > 0 || r.update != nil { report(r) }
             openForScreenshot()
         }
     }

@@ -1,0 +1,35 @@
+name: iOS update file
+
+# Publishes ios/update/podcats-update.json, the file the app's "Check for Updates" downloads, after checking that the
+# app will accept it. This is how the app is changed without a new .ipa: edit the file, raise its version, push.
+on:
+  push:
+    paths: ["ios/update/**", ".github/workflows/ios-update.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The app accepts the file, and its rules do what its notes say
+        working-directory: ios
+        run: swift test --filter UpdateTests
+
+      - name: Its script loads and returns text
+        working-directory: ios/update
+        run: node check-script.js podcats-update.json
+
+      - name: Publish
+        run: |
+          gh release view ios-update >/dev/null 2>&1 || gh release create ios-update --prerelease --title "Podcats for iPhone: update file" \
+            --notes "podcats-update.json is what the app downloads from Settings > Check for Updates. It changes how words are read, the voices offered and a few switches, without a new .ipa."
+          gh release upload ios-update ios/update/podcats-update.json --clobber
+          node -e "const p=require('./ios/update/podcats-update.json'); console.log('published update', p.version)"

@@ -29,9 +29,9 @@ enum AudioFiles {
     }
 
     /// The .pcm as an .m4a. Returns its length in seconds.
-    static func encode(pcm: URL, to out: URL) throws -> Double {
-        do { return try encode(pcm: pcm, to: out, bitRate: 64_000) } catch {
-            Log.shared.error("encode at 64 kbps, trying the encoder's own rate", error)
+    static func encode(pcm: URL, to out: URL, wanting bitRate: Int = 64_000) throws -> Double {
+        do { return try encode(pcm: pcm, to: out, bitRate: bitRate) } catch {
+            Log.shared.error("encode at \(bitRate) bits per second, trying the encoder's own rate", error)
             return try encode(pcm: pcm, to: out, bitRate: nil)
         }
     }

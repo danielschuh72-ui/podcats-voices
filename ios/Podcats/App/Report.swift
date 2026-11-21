@@ -28,6 +28,7 @@ enum Report {
                                      "compiledThisLaunch": compiled, "voices": voices.count, "hasAllTen": hasTen]
         r["engine"] = engine
         r["session"] = Session.shared.describe
+        r["update"] = Updates.shared.describe
         let s = Library.shared.settings
         r["settings"] = ["duo": s.duo, "host1": s.host1, "host2": s.host2, "pause": s.pause, "rate": s.rate, "saveToFiles": s.saveToFiles]
         r["preparing"] = Preparer.shared.currentID.flatMap { Library.shared.episode($0)?.title } ?? NSNull()

@@ -1,0 +1,24 @@
+{
+  "app": "podcats-update",
+  "format": 1,
+  "version": 1,
+  "minBuild": 9,
+  "notes": "Accounting terms are read the way people say them (IFRS, GAAP, LIFO, FIFO, EBITDA, A/R, A/P, SG&A, 10-K, 10-Q, YoY), and amounts in brackets such as ($3,400,000) are read as minus.",
+  "rules": [
+    { "find": "\\bIFRS\\b", "replace": "I F R S" },
+    { "find": "\\bGAAP\\b", "replace": "gap" },
+    { "find": "\\bLIFO\\b", "replace": "lie-foe" },
+    { "find": "\\bFIFO\\b", "replace": "fie-foe" },
+    { "find": "\\bEBITDA\\b", "replace": "ee-bit-dah" },
+    { "find": "\\bEBIT\\b", "replace": "ee-bit" },
+    { "find": "\\bA/R\\b", "replace": "accounts receivable" },
+    { "find": "\\bA/P\\b", "replace": "accounts payable" },
+    { "find": "\\bSG&A\\b", "replace": "S G and A" },
+    { "find": "\\bCOGS\\b", "replace": "cogs" },
+    { "find": "\\b10-K\\b", "replace": "ten K" },
+    { "find": "\\b10-Q\\b", "replace": "ten Q" },
+    { "find": "\\bYoY\\b", "replace": "year over year" },
+    { "find": "\\bFY ?(\\d{4})\\b", "replace": "fiscal year $1" }
+  ],
+  "js": "function prepareText(text) {\n  // accounting brackets: ($3,400,000) or (3,400) means a negative amount\n  return text.replace(/\\((\\$?\\d[\\d,]*(?:\\.\\d+)?)\\)/g, 'minus $1');\n}\n"
+}

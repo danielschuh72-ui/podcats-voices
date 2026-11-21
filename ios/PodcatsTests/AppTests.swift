@@ -136,4 +136,83 @@ final class AppTests: XCTestCase {
         try? fm.removeItem(at: Paths.documents.appendingPathComponent("not a script.m4a"))
         try? fm.removeItem(at: Paths.documents.appendingPathComponent(Importer.addedFolder))
     }
+
+    /// An update file: taken in, applied to what is voiced, refused when it is no good, fetched from the internet, removed.
+    func testUpdates() async throws {
+        let up = Updates.shared
+        let lib = Library.shared
+        up.remove()
+        XCTAssertNil(up.pack)
+        XCTAssertEqual(up.prepare("Under IFRS it was (500)."), "Under IFRS it was (500).")
+
+        // the same script before and after an update, left in the Files folder to be listened to elsewhere
+        let script = "Under IFRS and US GAAP, LIFO and FIFO differ. EBITDA rose, and A/R fell to ($3,400,000) in FY2024."
+        let off = lib.add(title: "CI Update Off", script: script, duo: false, host1: "Easton", host2: "Zoey", pause: 0.35)
+        Preparer.shared.kick()
+        await wait(600, "episode without an update prepared") { lib.episode(off.id)?.ready == true }
+        XCTAssertNil(lib.episode(off.id)?.update)
+
+        func json(_ version: Int, js: String? = nil, extra: String = "") -> Data {
+            let script = js.map { ",\"js\":\"\($0)\"" } ?? ""
+            return Data("{\"app\":\"podcats-update\",\"format\":1,\"version\":\(version),\"notes\":\"n\",\"rules\":[{\"find\":\"\\\\bIFRS\\\\b\",\"replace\":\"I F R S\"}]\(script)\(extra)}".utf8)
+        }
+        let good = "function prepareText(t) { return t.replace(/\\\\((\\\\d+)\\\\)/g, 'minus $1'); }"
+        try up.install(json(5, js: good, extra: ",\"moreVoices\":[\"Freya\"],\"flags\":{\"bitRate\":48000}"), from: "a test")
+        XCTAssertEqual(up.pack?.version, 5)
+        XCTAssertEqual(up.prepare("Under IFRS it was (500)."), "Under I F R S it was minus 500.")
+        XCTAssertEqual(up.bitRate, 48000)
+        XCTAssertEqual(Voices.more, ["Freya"])
+        XCTAssertEqual(Voices.resolve("freya", host: 1), "Freya")
+
+        // refused, and what was installed stays
+        XCTAssertThrowsError(try up.install(Data("{}".utf8), from: "a test"))
+        XCTAssertThrowsError(try up.install(json(6, js: "function prepareText(t) { return t.replace(/(/g, ''); }"), from: "a test"), "a script that does not parse")
+        XCTAssertThrowsError(try up.install(json(6, js: "var x = 1;"), from: "a test"), "a script without the function")
+        XCTAssertThrowsError(try up.install(json(6, js: "function prepareText(t) { return 5; }"), from: "a test"), "a script that returns no text")
+        XCTAssertThrowsError(try up.install(json(6, extra: ",\"minBuild\":999999"), from: "a test"), "an update for a later app")
+        XCTAssertEqual(up.pack?.version, 5)
+        try up.install(json(4), from: "a test", onlyIfNewer: true)
+        XCTAssertEqual(up.pack?.version, 5, "an older one does not replace a newer one when only looking for newer")
+
+        // a script that passes its trial but fails later is switched off; the rules still apply
+        try up.install(json(7, js: "function prepareText(t) { if (t.indexOf('boom') >= 0) { throw new Error('x'); } return t; }"), from: "a test")
+        XCTAssertEqual(up.prepare("IFRS boom"), "I F R S boom")
+        XCTAssertTrue(up.scriptOff)
+        XCTAssertEqual(up.prepare("IFRS again"), "I F R S again")
+
+        // a voice an update added really speaks
+        try up.install(json(8, extra: ",\"moreVoices\":[\"Freya\"]"), from: "a test")
+        let freya = try await Engine.shared.speak("A voice added by an update.", voice: "Freya")
+        XCTAssertGreaterThan(freya.count, 12_000)
+
+        // from the internet: the update file of this very commit
+        up.remove()
+        let address = try XCTUnwrap(ProcessInfo.processInfo.environment["UPDATE_URL"], "UPDATE_URL is passed to the tests")
+        XCTAssertEqual(up.url?.absoluteString, address)
+        let first = await up.check()
+        XCTAssertEqual(first, .installed(1), "\(first)")
+        XCTAssertEqual(up.pack?.version, 1)
+        XCTAssertFalse(up.scriptOff)
+        XCTAssertEqual(up.prepare("US GAAP: A/R was ($3,400,000) in FY2024."), "US gap: accounts receivable was minus $3,400,000 in fiscal year 2024.")
+        let second = await up.check()
+        XCTAssertEqual(second, .current(1), "\(second)")
+
+        let on = lib.add(title: "CI Update On", script: script, duo: false, host1: "Easton", host2: "Zoey", pause: 0.35)
+        Preparer.shared.kick()
+        await wait(600, "episode with the update prepared") { lib.episode(on.id)?.ready == true }
+        XCTAssertEqual(lib.episode(on.id)?.update, 1)
+
+        // Prepare Again makes the audio afresh (the first version is kept under another name to be compared)
+        try? FileManager.default.copyItem(at: Paths.m4a(off.id), to: Paths.documents.appendingPathComponent("CI Update Off (kept).m4a"))
+        Preparer.shared.prepareAgain(off.id)
+        XCTAssertEqual(lib.episode(off.id)?.ready, false)
+        await wait(600, "prepared again") { lib.episode(off.id)?.ready == true }
+        XCTAssertEqual(lib.episode(off.id)?.update, 1)
+        lib.update(off.id) { $0.title = "CI Update Again" }
+        Preparer.shared.saveToFiles(off.id)
+
+        up.remove()
+        XCTAssertEqual(up.prepare("IFRS"), "IFRS")
+        XCTAssertEqual(Voices.more, [])
+    }
 }

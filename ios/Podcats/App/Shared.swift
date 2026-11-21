@@ -60,10 +60,18 @@ struct VoicePicker: View {
     let title: String
     @Binding var voice: String
 
+    /// Voices an update added, and the one in use if it is none of the listed ones (so the picker can show it).
+    private var more: [String] {
+        var m = Voices.more.filter { !Voices.all.contains($0) }
+        if !Voices.all.contains(voice) && !m.contains(voice) { m.append(voice) }
+        return m
+    }
+
     var body: some View {
         Picker(title, selection: $voice) {
             Section("Female") { ForEach(Voices.female, id: \.self) { Text($0).tag($0) } }
             Section("Male") { ForEach(Voices.male, id: \.self) { Text($0).tag($0) } }
+            if !more.isEmpty { Section("More") { ForEach(more, id: \.self) { Text($0).tag($0) } } }
         }
     }
 }

@@ -5,6 +5,8 @@ enum Voices {
     static let female = ["Zoey", "Harper", "Everly", "Juniper", "Maeve"]
     static let male = ["Easton", "Trevor", "Russell", "Micah", "Hugh"]
     static let all = female + male
+    /// Further voices an update has added (see UpdatePack). They are in the model folder already.
+    static var more: [String] = []
     static let host1 = "Easton"
     static let host2 = "Zoey"
 
@@ -13,7 +15,7 @@ enum Voices {
         let fallback = host == 2 ? host2 : host1
         guard var v = any, !v.isEmpty else { return fallback }
         if v.hasPrefix("p_") { v = String(v.dropFirst(2)) }
-        if let hit = all.first(where: { $0.lowercased() == v.lowercased() }) { return hit }
+        if let hit = (all + more).first(where: { $0.lowercased() == v.lowercased() }) { return hit }
         return fallback
     }
 }
@@ -44,6 +46,7 @@ struct Episode: Codable, Identifiable, Equatable {
     var failed: String?
     var speed: Double?            // seconds of audio made per second, last time
     var fileName: String?         // its copy in the Files app, if any
+    var update: Int?              // the update that was in use when it was prepared (nil: none)
 
     var progress: Double { return ready ? 1 : (segsTotal > 0 ? Double(segsDone) / Double(segsTotal) : 0) }
 
@@ -57,7 +60,7 @@ struct Episode: Codable, Identifiable, Equatable {
 
     /// Forget the audio: after the script or the voices changed.
     mutating func resetAudio() {
-        sig = ""; segsDone = 0; segsTotal = 0; partBytes = 0; ready = false; duration = 0; tries = 0; failed = nil; speed = nil
+        sig = ""; segsDone = 0; segsTotal = 0; partBytes = 0; ready = false; duration = 0; tries = 0; failed = nil; speed = nil; update = nil
     }
 }
 
@@ -68,6 +71,7 @@ struct AppSettings: Codable, Equatable {
     var pause: Double = 0.35
     var rate: Double = 1
     var saveToFiles: Bool = true
+    var autoUpdate: Bool?         // nil means yes: look for an update file about twice a day
 }
 
 enum FileNames {

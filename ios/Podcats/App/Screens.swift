@@ -172,6 +172,11 @@ struct EpisodeOptionsView: View {
                 }
                 Section {
                     Text("\(ScriptParser.wordCount(episode.script)) words, \(episode.segments().count) pieces").foregroundStyle(.secondary)
+                    if episode.ready {
+                        Button("Prepare Again") { Preparer.shared.prepareAgain(episode.id); dismiss() }
+                    }
+                } footer: {
+                    if episode.ready { Text("Makes the audio again from the start, for instance after an update changed how words are read.") }
                 }
             }
             .navigationTitle("Episode")
@@ -246,6 +251,7 @@ struct SettingsView: View {
                 } header: { Text("Help") } footer: {
                     Text("A file describing what this iPhone did: the voices, preparing, the background, the last errors. Nothing is sent anywhere; you choose where the file goes.")
                 }
+                UpdateSection()
                 Section {
                     LabeledContent("Version", value: version)
                 } footer: {
@@ -258,5 +264,43 @@ struct SettingsView: View {
         }
         .sheet(item: $share) { ShareSheet(items: $0.urls) }
         .onChange(of: library.settings.saveToFiles) { _, _ in Preparer.shared.saveToFilesChanged() }
+    }
+}
+
+/// Settings > Updates: what is installed, looking for a newer one, and going back.
+struct UpdateSection: View {
+    @EnvironmentObject var library: Library
+    @ObservedObject private var updates = Updates.shared
+    @State private var said: String?
+
+    private var status: String {
+        guard let p = updates.pack else { return "None installed" }
+        return "Update \(p.version)" + (updates.scriptOff ? " (its script is switched off)" : "")
+    }
+
+    var body: some View {
+        Section {
+            LabeledContent("Installed", value: status)
+            if let n = updates.pack?.notes, !n.isEmpty { Text(n).font(.footnote).foregroundStyle(.secondary) }
+            Button {
+                Task {
+                    switch await updates.check() {
+                    case .installed(let v): said = "Update \(v) installed." + ((updates.pack?.notes ?? "").isEmpty ? "" : " " + (updates.pack?.notes ?? ""))
+                    case .current(let v): said = v == nil ? "There is no update yet." : "Update \(v ?? 0) is the newest."
+                    case .failed(let why): said = "Could not check: \(why)"
+                    }
+                }
+            } label: { Label(updates.checking ? "Checking…" : "Check for Updates", systemImage: "arrow.down.circle") }
+            .disabled(updates.checking)
+            Toggle("Check Automatically", isOn: Binding(get: { library.settings.autoUpdate ?? true }, set: { library.settings.autoUpdate = $0 }))
+            if updates.pack != nil {
+                Button("Remove Update", role: .destructive) { updates.remove(); said = "The update was removed. The app works as it was built." }
+            }
+        } header: { Text("Updates") } footer: {
+            Text("An update is one small file from the app's page on GitHub. It can change how words are read, add voices and switch between ways of working that are already in the app, without installing the app again. It cannot add screens or fix the app's own code: that still takes a new version. Episodes already prepared keep their audio; use Prepare Again on an episode to have it read the new way. An update file can also be put into the Podcats folder in the Files app.")
+        }
+        .alert("Updates", isPresented: Binding(get: { said != nil }, set: { if !$0 { said = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(said ?? "") }
     }
 }
