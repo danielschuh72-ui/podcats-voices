@@ -37,6 +37,9 @@ final class FlowTests: XCTestCase {
         app.buttons["Add Files"].firstMatch.tap()
 
         let one = anything("Ferry One")
+        // the picker now and then opens one folder up from the one it was pointed at: step into it, as a person would
+        let folder = anything("Picker Test")
+        if !one.waitForExistence(timeout: 10), folder.waitForExistence(timeout: 5) { folder.tap() }
         if !one.waitForExistence(timeout: 20) { snap("02-picker-missing"); dump("picker"); XCTFail("the picker did not show the sample files") }
         snap("02-picker")
         one.tap()
@@ -137,7 +140,7 @@ final class FlowTests: XCTestCase {
         snap("30-update-installed")
         app.alerts.buttons["OK"].firstMatch.tap()
         app.buttons["Settings"].firstMatch.tap()
-        let installed = app.staticTexts["Update 99"]
+        let installed = anything("Installed, Update 99")
         var swipes = 0
         while !installed.exists && swipes < 4 { app.swipeUp(); swipes += 1 }
         XCTAssertTrue(installed.waitForExistence(timeout: 5), "Settings shows the installed update")
@@ -147,7 +150,7 @@ final class FlowTests: XCTestCase {
         remove.tap()
         XCTAssertTrue(app.alerts.buttons["OK"].firstMatch.waitForExistence(timeout: 10))
         app.alerts.buttons["OK"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["None installed"].waitForExistence(timeout: 5), "removed")
+        XCTAssertTrue(anything("Installed, None installed").waitForExistence(timeout: 5), "removed")
         snap("32-update-removed")
     }
 
@@ -161,13 +164,13 @@ final class FlowTests: XCTestCase {
         let check = app.buttons["Check for Updates"].firstMatch
         var swipes = 0
         while !(check.exists && check.isHittable) && swipes < 4 { app.swipeUp(); swipes += 1 }
-        XCTAssertTrue(app.staticTexts["None installed"].exists, "nothing installed to begin with")
+        XCTAssertTrue(anything("Installed, None installed").exists, "nothing installed to begin with")
         check.tap()
         let told = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 1 installed'")).firstMatch
         XCTAssertTrue(told.waitForExistence(timeout: 40), "the update came down and was installed")
         snap("40-update-downloaded")
         app.alerts.buttons["OK"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Update 1"].waitForExistence(timeout: 5))
+        XCTAssertTrue(anything("Installed, Update 1").waitForExistence(timeout: 5), "Settings shows the downloaded update")
         check.tap()
         let newest = app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Update 1 is the newest'")).firstMatch
         XCTAssertTrue(newest.waitForExistence(timeout: 40), "a second check finds nothing newer")
